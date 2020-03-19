@@ -12,24 +12,49 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.Volley;
 import com.google.android.gms.common.api.GoogleApi;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.text.DateFormat;
+import java.util.Date;
+
+import edu.njit.earthquakemonitor.model.EarthQuake;
+import edu.njit.earthquakemonitor.util.Constants;
+
+import static edu.njit.earthquakemonitor.util.Constants.*;
+
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback,
+        GoogleMap.OnInfoWindowClickListener, GoogleMap.OnMarkerClickListener {
 
     private GoogleMap mMap;
     private LocationManager locationManager;
     private LocationListener locationListener;
+    private RequestQueue requestQueue;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
+
+        requestQueue = Volley.newRequestQueue(this);
+        getEarthQuakes();
 
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         locationListener = new LocationListener() {
@@ -66,6 +91,62 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mapFragment.getMapAsync(this);
     }
 
+    private void getEarthQuakes() {
+        final EarthQuake earthQuake = new EarthQuake();
+
+        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.GET, URL,
+                new Response.Listener<JSONObject>() {
+                    @Override
+                    public void onResponse(JSONObject response) {
+                        try {
+                            JSONArray features = response.getJSONArray("features");
+                            for(int i = 0; i < LIMIT && i < features.length(); i++) {
+                                JSONObject properties = features.getJSONObject(i).getJSONObject("properties");
+                                JSONObject geometry = features.getJSONObject(i).getJSONObject("geometry");
+                                JSONArray coordinates = geometry.getJSONArray("coordinates");
+                                Double lon = coordinates.getDouble(0);
+                                Double lat = coordinates.getDouble(1);
+
+                                earthQuake.setPlace(properties.getString("place"));
+                                earthQuake.setType(properties.getString("type"));
+                                earthQuake.setTimestamp(properties.getLong("time"));
+                                earthQuake.setMagnitude(properties.getDouble("mag"));
+                                earthQuake.setDetailLink(properties.getString("detail"));
+                                earthQuake.setLat(lat);
+                                earthQuake.setLon(lon);
+
+                                DateFormat dateFormat = DateFormat.getInstance();
+                                String formattedDate = dateFormat.format(new Date(earthQuake.getTimestamp()).getTime());
+
+                                LatLng latLng = new LatLng(earthQuake.getLat(), earthQuake.getLon());
+
+                                MarkerOptions markerOptions = new MarkerOptions();
+                                markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE));
+                                markerOptions.title(earthQuake.getPlace());
+                                markerOptions.position(latLng);
+                                markerOptions.snippet("Magnitude: " +
+                                        earthQuake.getMagnitude() +
+                                        "\n" +
+                                        "Date: " + formattedDate);
+
+                                Marker marker = mMap.addMarker(markerOptions);
+                                marker.setTag(earthQuake.getDetailLink());
+                                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 1));
+                            }
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                },
+                new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+
+                    }
+                });
+        requestQueue.add(jsonObjectRequest);
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -79,11 +160,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
-        // Add a marker in Sydney and move the camera
-        LatLng sydney = new LatLng(-34, 151);
-        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
     }
 
 
+    @Override
+    public void onInfoWindowClick(Marker marker) {
+
+    }
+
+    @Override
+    public boolean onMarkerClick(Marker marker) {
+        return false;
+    }
 }

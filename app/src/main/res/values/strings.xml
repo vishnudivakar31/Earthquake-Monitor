@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">EarthQuake Monitor</string>
     <string name="title_activity_maps">Map</string>
+    <string name="more_information">More Information</string>
+    <string name="surrounding_cities">Surrounding Cities</string>
+    <string name="close">Close</string>
 </resources>

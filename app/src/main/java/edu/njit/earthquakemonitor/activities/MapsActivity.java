@@ -1,4 +1,4 @@
-package edu.njit.earthquakemonitor;
+package edu.njit.earthquakemonitor.activities;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
@@ -6,17 +6,17 @@ import androidx.fragment.app.FragmentActivity;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
@@ -24,13 +24,13 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
-import com.google.android.gms.common.api.GoogleApi;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptor;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -42,9 +42,9 @@ import org.json.JSONObject;
 import java.text.DateFormat;
 import java.util.Date;
 
+import edu.njit.earthquakemonitor.R;
 import edu.njit.earthquakemonitor.model.EarthQuake;
 import edu.njit.earthquakemonitor.ui.CustomInfoWindow;
-import edu.njit.earthquakemonitor.util.Constants;
 
 import static edu.njit.earthquakemonitor.util.Constants.*;
 
@@ -58,6 +58,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private AlertDialog.Builder dialogBuilder;
     private AlertDialog dialog;
     private BitmapDescriptor[] iconColors;
+    private Button showListBtn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,6 +102,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_VIOLET)
         };
 
+        showListBtn = findViewById(R.id.shoListBtn);
+
+        showListBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+               startActivity(new Intent(MapsActivity.this, QuakesListActivity.class));
+            }
+        });
+
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, 1);
             return;
@@ -143,13 +153,23 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                 LatLng latLng = new LatLng(earthQuake.getLat(), earthQuake.getLon());
 
                                 MarkerOptions markerOptions = new MarkerOptions();
-                                markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE));
+                                markerOptions.icon(iconColors[randomInt(0, iconColors.length)]);
                                 markerOptions.title(earthQuake.getPlace());
                                 markerOptions.position(latLng);
                                 markerOptions.snippet("Magnitude: " +
                                         earthQuake.getMagnitude() +
                                         "\n" +
                                         "Date: " + formattedDate);
+
+                                if(earthQuake.getMagnitude() >= 2.0) {
+                                    CircleOptions circleOptions = new CircleOptions();
+                                    circleOptions.center(latLng);
+                                    circleOptions.radius(2000);
+                                    circleOptions.strokeWidth(3.6F);
+                                    circleOptions.fillColor(Color.RED);
+                                    markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
+                                    mMap.addCircle(circleOptions);
+                                }
 
                                 Marker marker = mMap.addMarker(markerOptions);
                                 marker.setTag(earthQuake.getDetailLink());
